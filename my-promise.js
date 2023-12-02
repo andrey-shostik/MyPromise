@@ -10,8 +10,28 @@ export class MyPromise {
     callback(this.#resolve.bind(this), this.#reject.bind(this));
   }
 
+  static isPromise(value) {
+    if (!value) {
+      return false;
+    }
+
+    if (typeof value === "object" && value.then) {
+      return true;
+    }
+  }
+
+  static withResolvers() {
+    let resolve, reject;
+    const promise = new MyPromise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+
+    return { promise, resolve, reject };
+  }
+
   static all(promises) {
-    console.log(promises);
+    // @TODO
   }
 
   static resolve(value) {
@@ -21,8 +41,6 @@ export class MyPromise {
   static reject(error) {
     return new MyPromise((_, reject) => reject(error));
   }
-
-  static withResolvers() {}
 
   set state(value) {
     if (this.#state === "pending") {
@@ -52,51 +70,84 @@ export class MyPromise {
     this.state = "rejected";
   }
 
-  #handleStateChange(successCallback, failureCallback) {
-    if (this.state === "fulfilled") {
-      if (this.#onFulfilled.length) {
-        this.#onFulfilled.forEach((callback) => callback(this.#value));
-        this.#onFulfilled = [];
-      }
+  #handleStateChange() {
+    const listeners = {
+      fulfilled: this.#onFulfilled,
+      rejected: this.#onRejected,
+    };
+    const value = {
+      fulfilled: this.#value,
+      rejected: this.#error,
+    };
 
-      if (successCallback) {
-        const value = successCallback(this.#value);
-        return value?.then ? value : MyPromise.resolve(value);
-      }
+    if (!listeners[this.state].length) {
+      return false;
     }
 
-    if (this.state === "rejected") {
-      if (this.#onRejected.length) {
-        this.#onRejected.forEach((callback) => callback(this.#error));
-        this.#onRejected = [];
-      }
+    listeners[this.state].forEach((callback, index, array) => {
+      callback(value[this.state]);
+      delete array[index];
+    });
+  }
 
-      if (failureCallback) {
-        const value = failureCallback(this.#error);
-        return value?.then ? value : MyPromise.resolve(value);
-      }
+  #handleFulfilled(successCallback) {
+    if (!successCallback) {
+      return this;
     }
 
-    return this;
+    const value = successCallback(this.#value);
+
+    if (MyPromise.isPromise(value)) {
+      return value;
+    }
+
+    return MyPromise.resolve(value || this.#value);
+  }
+
+  #handleRejected(failureCallback) {
+    if (!failureCallback) {
+      return this;
+    }
+    const value = failureCallback(this.#value);
+
+    if (MyPromise.isPromise(value)) {
+      return value;
+    }
+
+    return MyPromise.resolve(value || this.#error);
   }
 
   then(successCallback, failureCallback) {
-    if (this.state !== "pending") {
-      return this.#handleStateChange(successCallback, failureCallback);
+    if (this.state === "fulfilled") {
+      return this.#handleFulfilled(successCallback);
     }
 
+    if (this.state === "rejected") {
+      return this.#handleRejected(failureCallback);
+    }
+
+    const { promise, resolve, reject } = MyPromise.withResolvers();
+
     if (successCallback) {
-      this.#onFulfilled.push(successCallback);
+      this.#onFulfilled.push((value) => {
+        resolve(successCallback(value));
+      });
     }
 
     if (failureCallback) {
-      this.#onRejected.push(failureCallback);
+      this.#onRejected.push((error) => {
+        reject(failureCallback(error));
+      });
     }
 
-    return new MyPromise();
+    return promise;
   }
 
-  catch() {}
+  catch() {
+    // @TODO
+  }
 
-  finally() {}
+  finally() {
+    // @TODO
+  }
 }
