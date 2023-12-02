@@ -1,6 +1,6 @@
 export class MyPromise {
   #state = "pending"; // pending, fulfilled, rejected
-  #value = null;
+  #result = null;
   #error = null;
 
   #onFulfilled = [];
@@ -34,8 +34,8 @@ export class MyPromise {
     // @TODO
   }
 
-  static resolve(value) {
-    return new MyPromise((resolve) => resolve(value));
+  static resolve(result) {
+    return new MyPromise((resolve) => resolve(result));
   }
 
   static reject(error) {
@@ -54,9 +54,13 @@ export class MyPromise {
     return this.#state;
   }
 
-  #resolve(value) {
-    if (!this.#value) {
-      this.#value = value;
+  get value() {
+    return this.state === "fulfilled" ? this.#result : this.#error;
+  }
+
+  #resolve(result) {
+    if (!this.#result) {
+      this.#result = result;
     }
 
     this.state = "fulfilled";
@@ -76,7 +80,7 @@ export class MyPromise {
       rejected: this.#onRejected,
     };
     const value = {
-      fulfilled: this.#value,
+      fulfilled: this.#result,
       rejected: this.#error,
     };
 
@@ -90,54 +94,35 @@ export class MyPromise {
     });
   }
 
-  #handleFulfilled(successCallback) {
-    if (!successCallback) {
+  #handleState(callback) {
+    if (!callback) {
       return this;
     }
 
-    const value = successCallback(this.#value);
+    const value = callback(this.value);
 
     if (MyPromise.isPromise(value)) {
       return value;
     }
 
-    return MyPromise.resolve(value || this.#value);
-  }
-
-  #handleRejected(failureCallback) {
-    if (!failureCallback) {
-      return this;
-    }
-    const value = failureCallback(this.#value);
-
-    if (MyPromise.isPromise(value)) {
-      return value;
-    }
-
-    return MyPromise.resolve(value || this.#error);
+    return MyPromise.resolve(value || this.value);
   }
 
   then(successCallback, failureCallback) {
-    if (this.state === "fulfilled") {
-      return this.#handleFulfilled(successCallback);
-    }
-
-    if (this.state === "rejected") {
-      return this.#handleRejected(failureCallback);
+    if (this.state !== "pending") {
+      return this.#handleState(
+        this.state === "fulfilled" ? successCallback : failureCallback,
+      );
     }
 
     const { promise, resolve, reject } = MyPromise.withResolvers();
 
     if (successCallback) {
-      this.#onFulfilled.push((value) => {
-        resolve(successCallback(value));
-      });
+      this.#onFulfilled.push((result) => resolve(successCallback(result)));
     }
 
     if (failureCallback) {
-      this.#onRejected.push((error) => {
-        reject(failureCallback(error));
-      });
+      this.#onRejected.push((error) => reject(failureCallback(error)));
     }
 
     return promise;
