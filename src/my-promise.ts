@@ -3,8 +3,8 @@ export class MyPromise {
   #result = null;
   #error = null;
 
-  #onFulfilled = [];
-  #onRejected = [];
+  #onFulfilled: { (data: any): void }[] = [];
+  #onRejected: { (data: any): void }[] = [];
 
   constructor(callback) {
     callback(this.#resolve.bind(this), this.#reject.bind(this));
@@ -108,7 +108,7 @@ export class MyPromise {
     return MyPromise.resolve(value || this.value);
   }
 
-  then(successCallback, failureCallback) {
+  then(successCallback, failureCallback?) {
     if (this.state !== "pending") {
       return this.#handleState(
         this.state === "fulfilled" ? successCallback : failureCallback,

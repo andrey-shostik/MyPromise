@@ -6,11 +6,16 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node --inspect index.js"
+    "start": "node --import=tsimp/import --inspect  src/index.ts"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "prettier": "^3.1.0"
+    "@types/node": "^20.10.2",
+    "prettier": "^3.1.0",
+    "tsimp": "^2.0.9"
+  },
+  "volta": {
+    "node": "20.10.0"
   }
 }
